@@ -245,9 +245,32 @@ class Finding(BaseModel):
                 )
                 output_data["region"] = f"namespace: {check_output.namespace}"
 
-            elif provider.type == "microsoft365":
+            elif provider.type == "github":
+                output_data["auth_method"] = provider.auth_method
+                output_data["resource_name"] = check_output.resource_name
+                output_data["resource_uid"] = check_output.resource_id
+                output_data["account_name"] = provider.identity.account_name
+                output_data["account_uid"] = provider.identity.account_id
+                output_data["region"] = check_output.owner
+
+            elif provider.type == "m365":
                 output_data["auth_method"] = (
                     f"{provider.identity.identity_type}: {provider.identity.identity_id}"
+                )
+                output_data["account_uid"] = get_nested_attribute(
+                    provider, "identity.tenant_id"
+                )
+                output_data["account_name"] = get_nested_attribute(
+                    provider, "identity.tenant_domain"
+                )
+                output_data["resource_name"] = check_output.resource_name
+                output_data["resource_uid"] = check_output.resource_id
+                output_data["region"] = check_output.location
+
+            elif provider.type == "nhn":
+                output_data["auth_method"] = (
+                    f"passwordCredentials: username={get_nested_attribute(provider, '_identity.username')}, "
+                    f"tenantId={get_nested_attribute(provider, '_identity.tenant_id')}"
                 )
                 output_data["account_uid"] = get_nested_attribute(
                     provider, "identity.tenant_id"
@@ -269,7 +292,7 @@ class Finding(BaseModel):
 
             if not output_data["resource_uid"]:
                 logger.error(
-                    f"Check {check_output.check_metadata.CheckID} has no resource_id."
+                    f"Check {check_output.check_metadata.CheckID} has no resource_uid."
                 )
             if not output_data["resource_name"]:
                 logger.error(

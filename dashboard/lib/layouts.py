@@ -57,8 +57,9 @@ def create_layout_overview(
                     html.Div(className="flex", id="azure_card", n_clicks=0),
                     html.Div(className="flex", id="gcp_card", n_clicks=0),
                     html.Div(className="flex", id="k8s_card", n_clicks=0),
+                    html.Div(className="flex", id="m365_card", n_clicks=0),
                 ],
-                className="grid gap-x-4 mb-[30px] sm:grid-cols-2 lg:grid-cols-4",
+                className="grid gap-x-4 mb-[30px] sm:grid-cols-2 lg:grid-cols-5",
             ),
             html.H4(
                 "Count of Findings by severity",
@@ -89,12 +90,28 @@ def create_layout_overview(
                     ),
                     html.Div(
                         [
-                            (
-                                html.Label(
-                                    "Table Rows:",
-                                    className="text-prowler-stone-900 font-bold text-sm",
-                                    style={"margin-right": "10px"},
-                                )
+                            html.Label(
+                                "Search:",
+                                className="text-prowler-stone-900 font-bold text-sm",
+                                style={"margin-right": "10px"},
+                            ),
+                            dcc.Input(
+                                id="search-input",
+                                type="text",
+                                placeholder="Search by check title, service, region...",
+                                debounce=True,
+                                style={
+                                    "padding": "4px 8px",
+                                    "border": "1px solid #ccc",
+                                    "borderRadius": "4px",
+                                    "marginRight": "20px",
+                                    "width": "250px",
+                                },
+                            ),
+                            html.Label(
+                                "Table Rows:",
+                                className="text-prowler-stone-900 font-bold text-sm",
+                                style={"margin-right": "10px"},
                             ),
                             table_row_dropdown,
                             download_button_csv,
@@ -131,7 +148,7 @@ def create_layout_compliance(
                     html.A(
                         [
                             html.Img(src="assets/favicon.ico", className="w-5 mr-3"),
-                            html.Span("Subscribe to prowler SaaS"),
+                            html.Span("Subscribe to Prowler Cloud"),
                         ],
                         href="https://prowler.pro/",
                         target="_blank",

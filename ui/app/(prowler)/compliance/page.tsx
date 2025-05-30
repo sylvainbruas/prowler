@@ -33,6 +33,7 @@ export default async function Compliance({
     filters: {
       "filter[state]": "completed",
     },
+    pageSize: 50,
   });
 
   if (!scansData?.data) {
@@ -159,6 +160,7 @@ const SSRComplianceGrid = async ({
           framework,
           version,
           requirements_status: { passed, total },
+          compliance_id,
         } = attributes;
 
         return (
@@ -170,6 +172,8 @@ const SSRComplianceGrid = async ({
             totalRequirements={total}
             prevPassingRequirements={passed}
             prevTotalRequirements={total}
+            scanId={scanId}
+            complianceId={compliance_id}
           />
         );
       })}
