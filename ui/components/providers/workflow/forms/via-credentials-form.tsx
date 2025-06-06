@@ -10,22 +10,24 @@ import * as z from "zod";
 import { addCredentialsProvider } from "@/actions/providers/providers";
 import { useToast } from "@/components/ui";
 import { CustomButton } from "@/components/ui/custom";
-import { ProviderType } from "@/components/ui/entities";
 import { Form } from "@/components/ui/form";
 import {
   addCredentialsFormSchema,
   ApiError,
   AWSCredentials,
   AzureCredentials,
-  GCPCredentials,
+  GCPDefaultCredentials,
   KubernetesCredentials,
+  M365Credentials,
+  ProviderType,
 } from "@/types";
 
 import { ProviderTitleDocs } from "../provider-title-docs";
-import { AWScredentialsForm } from "./via-credentials/aws-credentials-form";
+import { AWSStaticCredentialsForm } from "./select-credentials-type/aws/credentials-type";
+import { GCPDefaultCredentialsForm } from "./select-credentials-type/gcp/credentials-type";
 import { AzureCredentialsForm } from "./via-credentials/azure-credentials-form";
-import { GCPcredentialsForm } from "./via-credentials/gcp-credentials-form";
 import { KubernetesCredentialsForm } from "./via-credentials/k8s-credentials-form";
+import { M365CredentialsForm } from "./via-credentials/m365-credentials-form";
 
 type CredentialsFormSchema = z.infer<
   ReturnType<typeof addCredentialsFormSchema>
@@ -35,8 +37,9 @@ type CredentialsFormSchema = z.infer<
 type FormType = CredentialsFormSchema &
   AWSCredentials &
   AzureCredentials &
-  GCPCredentials &
-  KubernetesCredentials;
+  GCPDefaultCredentials &
+  KubernetesCredentials &
+  M365Credentials;
 
 export const ViaCredentialsForm = ({
   searchParams,
@@ -55,7 +58,7 @@ export const ViaCredentialsForm = ({
     router.push(`?${currentParams.toString()}`);
   };
 
-  const providerType = searchParams.type;
+  const providerType = searchParams.type as ProviderType;
   const providerId = searchParams.id;
   const formSchema = addCredentialsFormSchema(providerType);
 
@@ -76,17 +79,25 @@ export const ViaCredentialsForm = ({
               client_secret: "",
               tenant_id: "",
             }
-          : providerType === "gcp"
+          : providerType === "m365"
             ? {
                 client_id: "",
                 client_secret: "",
-                refresh_token: "",
+                tenant_id: "",
+                user: "",
+                password: "",
               }
-            : providerType === "kubernetes"
+            : providerType === "gcp"
               ? {
-                  kubeconfig_content: "",
+                  client_id: "",
+                  client_secret: "",
+                  refresh_token: "",
                 }
-              : {}),
+              : providerType === "kubernetes"
+                ? {
+                    kubeconfig_content: "",
+                  }
+                : {}),
     },
   });
 
@@ -135,6 +146,18 @@ export const ViaCredentialsForm = ({
               message: errorMessage,
             });
             break;
+          case "/data/attributes/secret/user":
+            form.setError("user", {
+              type: "server",
+              message: errorMessage,
+            });
+            break;
+          case "/data/attributes/secret/password":
+            form.setError("password", {
+              type: "server",
+              message: errorMessage,
+            });
+            break;
           case "/data/attributes/secret/tenant_id":
             form.setError("tenant_id", {
               type: "server",
@@ -177,12 +200,12 @@ export const ViaCredentialsForm = ({
         <input type="hidden" name="providerId" value={providerId} />
         <input type="hidden" name="providerType" value={providerType} />
 
-        <ProviderTitleDocs providerType={providerType as ProviderType} />
+        <ProviderTitleDocs providerType={providerType} />
 
         <Divider />
 
         {providerType === "aws" && (
-          <AWScredentialsForm
+          <AWSStaticCredentialsForm
             control={form.control as unknown as Control<AWSCredentials>}
           />
         )}
@@ -191,9 +214,14 @@ export const ViaCredentialsForm = ({
             control={form.control as unknown as Control<AzureCredentials>}
           />
         )}
+        {providerType === "m365" && (
+          <M365CredentialsForm
+            control={form.control as unknown as Control<M365Credentials>}
+          />
+        )}
         {providerType === "gcp" && (
-          <GCPcredentialsForm
-            control={form.control as unknown as Control<GCPCredentials>}
+          <GCPDefaultCredentialsForm
+            control={form.control as unknown as Control<GCPDefaultCredentials>}
           />
         )}
         {providerType === "kubernetes" && (

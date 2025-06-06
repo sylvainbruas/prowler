@@ -9,7 +9,6 @@ import * as z from "zod";
 
 import { useToast } from "@/components/ui";
 import { CustomButton, CustomInput } from "@/components/ui/custom";
-import { ProviderType } from "@/components/ui/entities";
 import { Form } from "@/components/ui/form";
 
 import { addProvider } from "../../../../actions/providers/providers";
@@ -24,22 +23,27 @@ const getProviderFieldDetails = (providerType?: string) => {
     case "aws":
       return {
         label: "Account ID",
-        placeholder: "123456...",
+        placeholder: "e.g. 123456789012",
       };
     case "gcp":
       return {
         label: "Project ID",
-        placeholder: "project_id...",
+        placeholder: "e.g. my-gcp-project",
       };
     case "azure":
       return {
         label: "Subscription ID",
-        placeholder: "fc94207a-d396-4a14-a7fd-12a...",
+        placeholder: "e.g. fc94207a-d396-4a14-a7fd-12ab34cd56ef",
       };
     case "kubernetes":
       return {
         label: "Kubernetes Context",
-        placeholder: "context_name....",
+        placeholder: "e.g. my-cluster-context",
+      };
+    case "m365":
+      return {
+        label: "Domain ID",
+        placeholder: "e.g. your-domain.onmicrosoft.com",
       };
     default:
       return {
@@ -166,7 +170,7 @@ export const ConnectAccountForm = () => {
         {/* Step 2: UID, alias, and credentials (if AWS) */}
         {prevStep === 2 && (
           <>
-            <ProviderTitleDocs providerType={providerType as ProviderType} />
+            <ProviderTitleDocs providerType={providerType} />
             <CustomInput
               control={form.control}
               name="providerUid"

@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "drf_spectacular",
+    "drf_spectacular_jsonapi",
     "django_guid",
     "rest_framework_json_api",
     "django_celery_results",
@@ -111,6 +112,7 @@ SPECTACULAR_SETTINGS = {
     "PREPROCESSING_HOOKS": [
         "drf_spectacular_jsonapi.hooks.fix_nested_path_parameters",
     ],
+    "TITLE": "API Reference - Prowler",
 }
 
 WSGI_APPLICATION = "config.wsgi.application"
@@ -126,6 +128,7 @@ DJANGO_GUID = {
 }
 
 DATABASE_ROUTERS = ["api.db_router.MainRouter"]
+POSTGRES_EXTRA_DB_BACKEND_BASE = "database_backend"
 
 
 # Password validation
