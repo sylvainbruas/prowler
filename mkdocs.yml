@@ -53,6 +53,7 @@ nav:
           - Getting Started: tutorials/prowler-app.md
           - Role-Based Access Control: tutorials/prowler-app-rbac.md
           - Social Login: tutorials/prowler-app-social-login.md
+          - SSO with SAML: tutorials/prowler-app-sso.md
       - CLI:
           - Miscellaneous: tutorials/misc.md
           - Reporting: tutorials/reporting.md
@@ -102,7 +103,9 @@ nav:
           - Non In-Cluster Execution: tutorials/kubernetes/outside-cluster.md
           - Miscellaneous: tutorials/kubernetes/misc.md
       - Microsoft 365:
+          - Getting Started: tutorials/microsoft365/getting-started-m365.md
           - Authentication: tutorials/microsoft365/authentication.md
+          - Use of PowerShell: tutorials/microsoft365/use-of-powershell.md
   - Developer Guide:
       - Introduction: developer-guide/introduction.md
       - Provider: developer-guide/provider.md

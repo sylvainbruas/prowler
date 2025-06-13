@@ -14,7 +14,6 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from api.models import (
-    ComplianceOverview,
     Finding,
     Integration,
     IntegrationProviderRelationship,
@@ -29,8 +28,10 @@ from api.models import (
     ResourceTag,
     Role,
     RoleProviderGroupRelationship,
+    SAMLConfiguration,
     Scan,
     StateChoices,
+    StatusChoices,
     Task,
     User,
     UserRoleRelationship,
@@ -42,6 +43,7 @@ from api.v1.serializer_utils.integrations import (
     IntegrationCredentialField,
     S3ConfigSerializer,
 )
+from api.v1.serializer_utils.providers import ProviderSecretField
 
 # Tokens
 
@@ -959,6 +961,15 @@ class ScanReportSerializer(serializers.Serializer):
         fields = ["id"]
 
 
+class ScanComplianceReportSerializer(serializers.Serializer):
+    id = serializers.CharField(source="scan")
+    name = serializers.CharField()
+
+    class Meta:
+        resource_name = "scan-reports"
+        fields = ["id", "name"]
+
+
 class ResourceTagSerializer(RLSSerializer):
     """
     Serializer for the ResourceTag model
@@ -1141,12 +1152,16 @@ class BaseWriteProviderSecretSerializer(BaseWriteSerializer):
                 serializer = GCPProviderSecret(data=secret)
             elif provider_type == Provider.ProviderChoices.KUBERNETES.value:
                 serializer = KubernetesProviderSecret(data=secret)
+            elif provider_type == Provider.ProviderChoices.M365.value:
+                serializer = M365ProviderSecret(data=secret)
             else:
                 raise serializers.ValidationError(
                     {"provider": f"Provider type not supported {provider_type}"}
                 )
         elif secret_type == ProviderSecret.TypeChoices.ROLE:
             serializer = AWSRoleAssumptionProviderSecret(data=secret)
+        elif secret_type == ProviderSecret.TypeChoices.SERVICE_ACCOUNT:
+            serializer = GCPServiceAccountProviderSecret(data=secret)
         else:
             raise serializers.ValidationError(
                 {"secret_type": f"Secret type not supported: {secret_type}"}
@@ -1180,10 +1195,28 @@ class AzureProviderSecret(serializers.Serializer):
         resource_name = "provider-secrets"
 
 
+class M365ProviderSecret(serializers.Serializer):
+    client_id = serializers.CharField()
+    client_secret = serializers.CharField()
+    tenant_id = serializers.CharField()
+    user = serializers.EmailField()
+    password = serializers.CharField()
+
+    class Meta:
+        resource_name = "provider-secrets"
+
+
 class GCPProviderSecret(serializers.Serializer):
     client_id = serializers.CharField()
     client_secret = serializers.CharField()
     refresh_token = serializers.CharField()
+
+    class Meta:
+        resource_name = "provider-secrets"
+
+
+class GCPServiceAccountProviderSecret(serializers.Serializer):
+    service_account_key = serializers.JSONField()
 
     class Meta:
         resource_name = "provider-secrets"
@@ -1209,141 +1242,6 @@ class AWSRoleAssumptionProviderSecret(serializers.Serializer):
 
     class Meta:
         resource_name = "provider-secrets"
-
-
-@extend_schema_field(
-    {
-        "oneOf": [
-            {
-                "type": "object",
-                "title": "AWS Static Credentials",
-                "properties": {
-                    "aws_access_key_id": {
-                        "type": "string",
-                        "description": "The AWS access key ID. Required for environments where no IAM role is being "
-                        "assumed and direct AWS access is needed.",
-                    },
-                    "aws_secret_access_key": {
-                        "type": "string",
-                        "description": "The AWS secret access key. Must accompany 'aws_access_key_id' to authorize "
-                        "access to AWS resources.",
-                    },
-                    "aws_session_token": {
-                        "type": "string",
-                        "description": "The session token associated with temporary credentials. Only needed for "
-                        "session-based or temporary AWS access.",
-                    },
-                },
-                "required": ["aws_access_key_id", "aws_secret_access_key"],
-            },
-            {
-                "type": "object",
-                "title": "AWS Assume Role",
-                "properties": {
-                    "role_arn": {
-                        "type": "string",
-                        "description": "The Amazon Resource Name (ARN) of the role to assume. Required for AWS role "
-                        "assumption.",
-                    },
-                    "external_id": {
-                        "type": "string",
-                        "description": "An identifier to enhance security for role assumption.",
-                    },
-                    "aws_access_key_id": {
-                        "type": "string",
-                        "description": "The AWS access key ID. Only required if the environment lacks pre-configured "
-                        "AWS credentials.",
-                    },
-                    "aws_secret_access_key": {
-                        "type": "string",
-                        "description": "The AWS secret access key. Required if 'aws_access_key_id' is provided or if "
-                        "no AWS credentials are pre-configured.",
-                    },
-                    "aws_session_token": {
-                        "type": "string",
-                        "description": "The session token for temporary credentials, if applicable.",
-                    },
-                    "session_duration": {
-                        "type": "integer",
-                        "minimum": 900,
-                        "maximum": 43200,
-                        "default": 3600,
-                        "description": "The duration (in seconds) for the role session.",
-                    },
-                    "role_session_name": {
-                        "type": "string",
-                        "description": "An identifier for the role session, useful for tracking sessions in AWS logs. "
-                        "The regex used to validate this parameter is a string of characters consisting of "
-                        "upper- and lower-case alphanumeric characters with no spaces. You can also include "
-                        "underscores or any of the following characters: =,.@-\n\n"
-                        "Examples:\n"
-                        "- MySession123\n"
-                        "- User_Session-1\n"
-                        "- Test.Session@2",
-                        "pattern": "^[a-zA-Z0-9=,.@_-]+$",
-                    },
-                },
-                "required": ["role_arn", "external_id"],
-            },
-            {
-                "type": "object",
-                "title": "Azure Static Credentials",
-                "properties": {
-                    "client_id": {
-                        "type": "string",
-                        "description": "The Azure application (client) ID for authentication in Azure AD.",
-                    },
-                    "client_secret": {
-                        "type": "string",
-                        "description": "The client secret associated with the application (client) ID, providing "
-                        "secure access.",
-                    },
-                    "tenant_id": {
-                        "type": "string",
-                        "description": "The Azure tenant ID, representing the directory where the application is "
-                        "registered.",
-                    },
-                },
-                "required": ["client_id", "client_secret", "tenant_id"],
-            },
-            {
-                "type": "object",
-                "title": "GCP Static Credentials",
-                "properties": {
-                    "client_id": {
-                        "type": "string",
-                        "description": "The client ID from Google Cloud, used to identify the application for GCP "
-                        "access.",
-                    },
-                    "client_secret": {
-                        "type": "string",
-                        "description": "The client secret associated with the GCP client ID, required for secure "
-                        "access.",
-                    },
-                    "refresh_token": {
-                        "type": "string",
-                        "description": "A refresh token that allows the application to obtain new access tokens for "
-                        "extended use.",
-                    },
-                },
-                "required": ["client_id", "client_secret", "refresh_token"],
-            },
-            {
-                "type": "object",
-                "title": "Kubernetes Static Credentials",
-                "properties": {
-                    "kubeconfig_content": {
-                        "type": "string",
-                        "description": "The content of the Kubernetes kubeconfig file, encoded as a string.",
-                    }
-                },
-                "required": ["kubeconfig_content"],
-            },
-        ]
-    }
-)
-class ProviderSecretField(serializers.JSONField):
-    pass
 
 
 class ProviderSecretSerializer(RLSSerializer):
@@ -1782,130 +1680,63 @@ class RoleProviderGroupRelationshipSerializer(RLSSerializer, BaseWriteSerializer
 # Compliance overview
 
 
-class ComplianceOverviewSerializer(RLSSerializer):
+class ComplianceOverviewSerializer(serializers.Serializer):
     """
-    Serializer for the ComplianceOverview model.
+    Serializer for compliance requirement status aggregated by compliance framework.
+
+    This serializer is used to format aggregated compliance framework data,
+    providing counts of passed, failed, and manual requirements along with
+    an overall global status for each framework.
     """
 
-    requirements_status = serializers.SerializerMethodField(
-        read_only=True, method_name="get_requirements_status"
-    )
-    provider_type = serializers.SerializerMethodField(read_only=True)
+    # Add ID field which will be used for resource identification
+    id = serializers.CharField()
+    framework = serializers.CharField()
+    version = serializers.CharField()
+    requirements_passed = serializers.IntegerField()
+    requirements_failed = serializers.IntegerField()
+    requirements_manual = serializers.IntegerField()
+    total_requirements = serializers.IntegerField()
 
-    class Meta:
-        model = ComplianceOverview
-        fields = [
-            "id",
-            "inserted_at",
-            "compliance_id",
-            "framework",
-            "version",
-            "requirements_status",
-            "region",
-            "provider_type",
-            "scan",
-            "url",
-        ]
-
-    @extend_schema_field(
-        {
-            "type": "object",
-            "properties": {
-                "passed": {"type": "integer"},
-                "failed": {"type": "integer"},
-                "manual": {"type": "integer"},
-                "total": {"type": "integer"},
-            },
-        }
-    )
-    def get_requirements_status(self, obj):
-        return {
-            "passed": obj.requirements_passed,
-            "failed": obj.requirements_failed,
-            "manual": obj.requirements_manual,
-            "total": obj.total_requirements,
-        }
-
-    @extend_schema_field(serializers.CharField(allow_null=True))
-    def get_provider_type(self, obj):
-        """
-        Retrieves the provider_type from scan.provider.provider_type.
-        """
-        try:
-            return obj.scan.provider.provider
-        except AttributeError:
-            return None
+    class JSONAPIMeta:
+        resource_name = "compliance-overviews"
 
 
-class ComplianceOverviewFullSerializer(ComplianceOverviewSerializer):
-    requirements = serializers.SerializerMethodField(read_only=True)
+class ComplianceOverviewDetailSerializer(serializers.Serializer):
+    """
+    Serializer for detailed compliance requirement information.
 
-    class Meta(ComplianceOverviewSerializer.Meta):
-        fields = ComplianceOverviewSerializer.Meta.fields + [
-            "description",
-            "requirements",
-        ]
+    This serializer formats the aggregated requirement data, showing detailed status
+    and counts for each requirement across all regions.
+    """
 
-    @extend_schema_field(
-        {
-            "type": "object",
-            "properties": {
-                "requirement_id": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "checks": {
-                            "type": "object",
-                            "properties": {
-                                "check_name": {
-                                    "type": "object",
-                                    "properties": {
-                                        "status": {
-                                            "type": "string",
-                                            "enum": ["PASS", "FAIL", None],
-                                        },
-                                    },
-                                }
-                            },
-                            "description": "Each key in the 'checks' object is a check name, with values as "
-                            "'PASS', 'FAIL', or null.",
-                        },
-                        "status": {
-                            "type": "string",
-                            "enum": ["PASS", "FAIL", "MANUAL"],
-                        },
-                        "attributes": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                            },
-                        },
-                        "description": {"type": "string"},
-                        "checks_status": {
-                            "type": "object",
-                            "properties": {
-                                "total": {"type": "integer"},
-                                "pass": {"type": "integer"},
-                                "fail": {"type": "integer"},
-                                "manual": {"type": "integer"},
-                            },
-                        },
-                    },
-                }
-            },
-        }
-    )
-    def get_requirements(self, obj):
-        """
-        Returns the detailed structure of requirements.
-        """
-        return obj.requirements
+    id = serializers.CharField()
+    framework = serializers.CharField()
+    version = serializers.CharField()
+    description = serializers.CharField()
+    status = serializers.ChoiceField(choices=StatusChoices.choices)
+
+    class JSONAPIMeta:
+        resource_name = "compliance-requirements-details"
+
+
+class ComplianceOverviewAttributesSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    framework_description = serializers.CharField()
+    name = serializers.CharField()
+    framework = serializers.CharField()
+    version = serializers.CharField()
+    description = serializers.CharField()
+    attributes = serializers.JSONField()
+
+    class JSONAPIMeta:
+        resource_name = "compliance-requirements-attributes"
 
 
 class ComplianceOverviewMetadataSerializer(serializers.Serializer):
     regions = serializers.ListField(child=serializers.CharField(), allow_empty=True)
 
-    class Meta:
+    class JSONAPIMeta:
         resource_name = "compliance-overviews-metadata"
 
 
@@ -2231,3 +2062,25 @@ class IntegrationUpdateSerializer(BaseWriteIntegrationSerializer):
             IntegrationProviderRelationship.objects.bulk_create(new_relationships)
 
         return super().update(instance, validated_data)
+
+
+# SSO
+
+
+class SamlInitiateSerializer(serializers.Serializer):
+    email_domain = serializers.CharField()
+
+    class JSONAPIMeta:
+        resource_name = "saml-initiate"
+
+
+class SamlMetadataSerializer(serializers.Serializer):
+    class JSONAPIMeta:
+        resource_name = "saml-meta"
+
+
+class SAMLConfigurationSerializer(RLSSerializer):
+    class Meta:
+        model = SAMLConfiguration
+        fields = ["id", "email_domain", "metadata_xml", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]

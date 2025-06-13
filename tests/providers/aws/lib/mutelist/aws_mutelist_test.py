@@ -304,7 +304,7 @@ class TestAWSMutelist:
 
         mutelist = AWSMutelist(mutelist_content=mutelist_fixture)
 
-        assert mutelist.validate_mutelist()
+        assert len(mutelist.validate_mutelist(mutelist_fixture)) > 0
         assert mutelist.mutelist == mutelist_fixture
 
     def test_validate_mutelist_not_valid_key(self):
@@ -317,7 +317,7 @@ class TestAWSMutelist:
 
         mutelist = AWSMutelist(mutelist_content=mutelist_fixture)
 
-        assert not mutelist.validate_mutelist()
+        assert len(mutelist.validate_mutelist(mutelist_fixture)) == 0
         assert mutelist.mutelist == {}
         assert mutelist.mutelist_file_path is None
 
@@ -848,7 +848,6 @@ class TestAWSMutelist:
     def test_is_muted_aws_default_mutelist(
         self,
     ):
-
         mutelist = AWSMutelist(
             mutelist_path=f"{path.dirname(path.realpath(__file__))}/../../../../../prowler/config/aws_mutelist.yaml"
         )
@@ -1877,3 +1876,57 @@ class TestAWSMutelist:
         assert muted_finding.status == "MUTED"
         assert muted_finding.muted
         assert muted_finding.raw["status"] == "FAIL"
+
+    def test_is_muted_with_wildcard_check(self):
+        mutelist_content = {
+            "Accounts": {
+                "*": {
+                    "Checks": {
+                        "cloudtrail_*": {
+                            "Regions": ["*"],
+                            "Resources": ["*"],
+                        }
+                    }
+                }
+            }
+        }
+        mutelist = AWSMutelist(mutelist_content=mutelist_content)
+
+        assert not mutelist.is_muted(
+            AWS_ACCOUNT_NUMBER,
+            "iam_inline_policy_no_full_access_to_cloudtrail",
+            AWS_REGION_US_EAST_1,
+            "prowler",
+            "",
+        )
+
+        assert mutelist.is_muted(
+            AWS_ACCOUNT_NUMBER,
+            "cloudtrail_insights_exist",
+            AWS_REGION_US_EAST_1,
+            "prowler",
+            "",
+        )
+
+    def test_is_muted_with_wildcard_in_middle_of_check(self):
+        mutelist_content = {
+            "Accounts": {
+                "*": {
+                    "Checks": {
+                        "guardduty_*_enabled": {
+                            "Regions": ["*"],
+                            "Resources": ["*"],
+                        }
+                    }
+                }
+            }
+        }
+        mutelist = AWSMutelist(mutelist_content=mutelist_content)
+
+        assert mutelist.is_muted(
+            AWS_ACCOUNT_NUMBER,
+            "guardduty_is_enabled",
+            AWS_REGION_US_EAST_1,
+            "prowler",
+            "",
+        )

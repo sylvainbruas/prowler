@@ -15,6 +15,7 @@ export const getScans = async ({
   query = "",
   sort = "",
   filters = {},
+  pageSize = 10,
 }) => {
   const headers = await getAuthHeaders({ contentType: false });
 
@@ -23,6 +24,7 @@ export const getScans = async ({
   const url = new URL(`${apiBaseUrl}/scans`);
 
   if (page) url.searchParams.append("page[number]", page.toString());
+  if (pageSize) url.searchParams.append("page[size]", pageSize.toString());
   if (query) url.searchParams.append("filter[search]", query);
   if (sort) url.searchParams.append("sort", sort);
 
@@ -234,10 +236,23 @@ export const getExportsZip = async (scanId: string) => {
       headers,
     });
 
+    if (response.status === 202) {
+      const json = await response.json();
+      const taskId = json?.data?.id;
+      const state = json?.data?.attributes?.state;
+      return {
+        pending: true,
+        state,
+        taskId,
+      };
+    }
+
     if (!response.ok) {
       const errorData = await response.json();
+
       throw new Error(
-        errorData?.errors?.[0]?.detail || "Failed to fetch report",
+        errorData?.errors?.detail ||
+          "Unable to fetch scan report. Contact support if the issue continues.",
       );
     }
 
@@ -250,6 +265,53 @@ export const getExportsZip = async (scanId: string) => {
       success: true,
       data: base64,
       filename: `scan-${scanId}-report.zip`,
+    };
+  } catch (error) {
+    return {
+      error: getErrorMessage(error),
+    };
+  }
+};
+
+export const getComplianceCsv = async (
+  scanId: string,
+  complianceId: string,
+) => {
+  const headers = await getAuthHeaders({ contentType: false });
+
+  const url = new URL(
+    `${apiBaseUrl}/scans/${scanId}/compliance/${complianceId}`,
+  );
+
+  try {
+    const response = await fetch(url.toString(), { headers });
+
+    if (response.status === 202) {
+      const json = await response.json();
+      const taskId = json?.data?.id;
+      const state = json?.data?.attributes?.state;
+      return {
+        pending: true,
+        state,
+        taskId,
+      };
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData?.errors?.detail ||
+          "Unable to retrieve compliance report. Contact support if the issue continues.",
+      );
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+    return {
+      success: true,
+      data: base64,
+      filename: `scan-${scanId}-compliance-${complianceId}.csv`,
     };
   } catch (error) {
     return {
